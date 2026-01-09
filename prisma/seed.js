@@ -5,47 +5,65 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('Seeding database...')
 
-  // Create users
-  const user1 = await prisma.user.upsert({
-    where: { email: 'john.doe@example.com' },
-    update: {},
-    create: {
+  // Clear existing data (optional - comment out if you want to keep existing data)
+  console.log('Clearing existing data...')
+  await prisma.taskDependency.deleteMany()
+  await prisma.taskMetric.deleteMany()
+  await prisma.taskLog.deleteMany()
+  await prisma.taskFile.deleteMany()
+  await prisma.taskTag.deleteMany()
+  await prisma.comment.deleteMany()
+  await prisma.task.deleteMany()
+  await prisma.userPermission.deleteMany()
+  await prisma.apiKey.deleteMany()
+  await prisma.session.deleteMany()
+  await prisma.user.deleteMany()
+  await prisma.systemSettings.deleteMany()
+  await prisma.notification.deleteMany()
+
+  console.log('Creating sample users...')
+
+  // Create 3 sample users
+  const user1 = await prisma.user.create({
+    data: {
       email: 'john.doe@example.com',
       firstName: 'John',
       lastName: 'Doe',
       phone: '+1 234 567 8900',
-      bio: 'System Administrator',
-      role: 'admin'
+      bio: 'Senior System Administrator with 10+ years of experience in infrastructure management and task monitoring systems.',
+      role: 'admin',
+      avatar: null
     }
   })
 
-  const user2 = await prisma.user.upsert({
-    where: { email: 'jane.smith@example.com' },
-    update: {},
-    create: {
+  const user2 = await prisma.user.create({
+    data: {
       email: 'jane.smith@example.com',
       firstName: 'Jane',
       lastName: 'Smith',
       phone: '+1 234 567 8901',
-      bio: 'Developer',
-      role: 'user'
+      bio: 'Full-stack Developer specializing in React and Node.js. Passionate about building scalable applications.',
+      role: 'user',
+      avatar: null
     }
   })
 
-  const user3 = await prisma.user.upsert({
-    where: { email: 'bob.wilson@example.com' },
-    update: {},
-    create: {
+  const user3 = await prisma.user.create({
+    data: {
       email: 'bob.wilson@example.com',
       firstName: 'Bob',
       lastName: 'Wilson',
       phone: '+1 234 567 8902',
-      bio: 'Data Analyst',
-      role: 'user'
+      bio: 'Data Analyst and Business Intelligence Specialist. Expert in data processing and report generation.',
+      role: 'user',
+      avatar: null
     }
   })
 
-  console.log('Created users:', { user1, user2, user3 })
+  console.log('✅ Created 3 users:')
+  console.log(`  1. ${user1.firstName} ${user1.lastName} (${user1.email}) - ${user1.role}`)
+  console.log(`  2. ${user2.firstName} ${user2.lastName} (${user2.email}) - ${user2.role}`)
+  console.log(`  3. ${user3.firstName} ${user3.lastName} (${user3.email}) - ${user3.role}`)
 
   // Create tasks
   const task1 = await prisma.task.create({
