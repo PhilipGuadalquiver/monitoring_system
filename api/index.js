@@ -45,21 +45,61 @@ app.use(express.json())
 // Helper function to check database connection
 const checkDatabase = (req, res, next) => {
   if (!prisma) {
+    console.error('Database check failed:', {
+      hasConnectionString: !!connectionString,
+      hasPool: !!pool,
+      hasAdapter: !!adapter,
+      path: req.path
+    })
     return res.status(503).json({ 
-      error: 'Database connection not available. Please check DATABASE_URL environment variable.',
+      error: 'Database connection not available',
+      message: connectionString 
+        ? 'Database connection failed. Please check your DATABASE_URL configuration.'
+        : 'DATABASE_URL environment variable is not set. Please configure it in Vercel.',
       details: 'The server cannot connect to the database. This may be a configuration issue.'
     })
   }
   next()
 }
 
-// Health check
+// Health check - works even without database
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     message: 'Server is running',
-    database: prisma ? 'connected' : 'not connected'
+    database: prisma ? 'available' : 'not configured',
+    hasDatabaseUrl: !!connectionString,
+    timestamp: new Date().toISOString()
   })
+})
+
+// Test endpoint to check API is working
+app.get('/api/test', async (req, res) => {
+  try {
+    if (!prisma) {
+      return res.status(503).json({
+        error: 'Database not configured',
+        message: 'DATABASE_URL environment variable is not set or invalid',
+        hasDatabaseUrl: !!connectionString
+      })
+    }
+    
+    // Try a simple query
+    const userCount = await prisma.user.count()
+    res.json({
+      status: 'ok',
+      message: 'API and database are working',
+      userCount,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Test endpoint error:', error)
+    res.status(500).json({
+      error: 'Database connection failed',
+      message: error.message,
+      hasDatabaseUrl: !!connectionString
+    })
+  }
 })
 
 // Import routes from server/index.js
@@ -540,12 +580,20 @@ app.put('/api/settings', checkDatabase, async (req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err)
+  console.error('Unhandled error:', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    hasDatabase: !!prisma,
+    hasDatabaseUrl: !!connectionString
+  })
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'production' 
-      ? 'An error occurred. Please try again later.' 
-      : err.message
+      ? 'An error occurred. Please check the server logs for details.' 
+      : err.message,
+    path: req.path
   })
 })
 

@@ -45,7 +45,13 @@ const apiRequest = async (endpoint, options = {}) => {
       } else if (response.status === 404) {
         errorMessage = 'API endpoint not found. Please check the API URL configuration.'
       } else if (response.status >= 500) {
-        errorMessage = 'Server error. Please try again later.'
+        // Try to get more details from the error response
+        try {
+          const errorData = await response.json().catch(() => ({}))
+          errorMessage = errorData.message || errorData.error || 'Server error. Please try again later.'
+        } catch (e) {
+          errorMessage = 'Server error. Please try again later.'
+        }
       }
       
       throw new Error(errorMessage)
