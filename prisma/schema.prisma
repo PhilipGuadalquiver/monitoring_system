@@ -1,0 +1,222 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  firstName String
+  lastName  String
+  phone     String?
+  bio       String?
+  avatar    String?
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedTasks Task[] @relation("AssignedTasks")
+  createdTasks  Task[] @relation("CreatedTasks")
+  comments      Comment[]
+  sessions      Session[]
+  apiKeys       ApiKey[]
+  permissions   UserPermission[]
+
+  @@map("users")
+}
+
+model Task {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  status          String   @default("pending") // pending, running, completed, failed
+  progress        Int      @default(0)
+  priority        String   @default("medium") // low, medium, high, critical
+  category        String   @default("data")
+  assigneeId      String
+  createdById     String
+  startDate       DateTime?
+  deadline        DateTime?
+  estimatedDuration Int?   // in hours
+  duration        String?  // actual duration
+  color           String?
+  executionMode   String?  // sequential, parallel, scheduled
+  autoRetry       Boolean  @default(false)
+  retryCount      Int      @default(0)
+  timeout         Int?     // in seconds
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assignee        User     @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  createdBy       User     @relation("CreatedTasks", fields: [createdById], references: [id])
+  tags            TaskTag[]
+  files           TaskFile[]
+  logs            TaskLog[]
+  comments        Comment[]
+  dependencies    TaskDependency[] @relation("DependentTask")
+  dependents      TaskDependency[] @relation("DependencyTask")
+  metrics         TaskMetric[]
+
+  @@map("tasks")
+}
+
+model TaskTag {
+  id        String   @id @default(uuid())
+  taskId    String
+  tag       String
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, tag])
+  @@map("task_tags")
+}
+
+model TaskFile {
+  id        String   @id @default(uuid())
+  taskId    String
+  name      String
+  size      String
+  type      String   // input, output, config
+  url       String?
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_files")
+}
+
+model TaskLog {
+  id        String   @id @default(uuid())
+  taskId    String
+  message   String
+  type      String   @default("info") // info, success, warning, error
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_logs")
+}
+
+model TaskDependency {
+  id              String   @id @default(uuid())
+  dependentTaskId String
+  dependencyTaskId String
+  createdAt       DateTime @default(now())
+
+  dependentTask   Task     @relation("DependentTask", fields: [dependentTaskId], references: [id], onDelete: Cascade)
+  dependencyTask Task     @relation("DependencyTask", fields: [dependencyTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([dependentTaskId, dependencyTaskId])
+  @@map("task_dependencies")
+}
+
+model TaskMetric {
+  id        String   @id @default(uuid())
+  taskId    String
+  cpuUsage  Float?
+  memoryUsage Float?
+  diskIO    Float?
+  networkIO Float?
+  throughput Float?
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_metrics")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  taskId    String
+  userId    String
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  device    String
+  location  String?
+  ipAddress String?
+  userAgent String?
+  isActive  Boolean  @default(true)
+  lastActive DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  key       String   @unique
+  status    String   @default("active") // active, revoked
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+model UserPermission {
+  id          String   @id @default(uuid())
+  userId      String
+  permission  String   // create_tasks, edit_tasks, delete_tasks, manage_users, view_reports, export_data
+  granted     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permission])
+  @@map("user_permissions")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?
+  event     String   // task_completed, task_failed, task_started, deadline_approaching, new_task_assigned
+  email     Boolean  @default(true)
+  push      Boolean  @default(true)
+  sms       Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notifications")
+}
+
+model SystemSettings {
+  id                String   @id @default(uuid())
+  appName            String   @default("Monitoring System")
+  language           String   @default("en")
+  timezone           String   @default("UTC")
+  dateFormat         String   @default("YYYY-MM-DD")
+  timeFormat         String   @default("24h")
+  theme              String   @default("light")
+  primaryColor       String   @default("#1890ff")
+  autoSave           Boolean  @default(true)
+  refreshInterval    Int      @default(30)
+  quietHoursStart    String?
+  quietHoursEnd      String?
+  updatedAt          DateTime @updatedAt
+
+  @@map("system_settings")
+}

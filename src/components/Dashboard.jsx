@@ -31,54 +31,50 @@ import {
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
+import { tasksAPI, dashboardAPI } from '../services/api'
 
 const { Title, Text } = Typography
 
 const Dashboard = () => {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
-  const [tasks, setTasks] = useState([
-    {
-      id: '1',
-      name: 'Data Processing Task',
-      status: 'running',
-      progress: 65,
-      priority: 'high',
-      assignee: 'John Doe',
-      createdAt: dayjs().subtract(2, 'hour'),
-      deadline: dayjs().add(5, 'hour')
-    },
-    {
-      id: '2',
-      name: 'System Backup',
-      status: 'completed',
-      progress: 100,
-      priority: 'medium',
-      assignee: 'Jane Smith',
-      createdAt: dayjs().subtract(1, 'day'),
-      deadline: dayjs().subtract(1, 'day').add(3, 'hour')
-    },
-    {
-      id: '3',
-      name: 'Report Generation',
-      status: 'pending',
-      progress: 0,
-      priority: 'low',
-      assignee: 'Bob Wilson',
-      createdAt: dayjs().subtract(30, 'minute'),
-      deadline: dayjs().add(2, 'day')
-    },
-    {
-      id: '4',
-      name: 'Database Migration',
-      status: 'failed',
-      progress: 45,
-      priority: 'high',
-      assignee: 'Alice Brown',
-      createdAt: dayjs().subtract(3, 'hour'),
-      deadline: dayjs().add(1, 'day')
+  const [loading, setLoading] = useState(true)
+  const [tasks, setTasks] = useState([])
+  const [stats, setStats] = useState({
+    total: 0,
+    running: 0,
+    completed: 0,
+    failed: 0,
+    pending: 0
+  })
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const [tasksData, statsData] = await Promise.all([
+        tasksAPI.getAll(),
+        dashboardAPI.getStats()
+      ])
+      setTasks(tasksData)
+      setStats(statsData)
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
+
+  // Use stats from API or calculate from tasks
+  const displayStats = stats.total > 0 ? stats : {
+    total: tasks.length,
+    running: tasks.filter(t => t.status === 'running').length,
+    completed: tasks.filter(t => t.status === 'completed').length,
+    failed: tasks.filter(t => t.status === 'failed').length,
+    pending: tasks.filter(t => t.status === 'pending').length
+  }
 
   const getStatusColor = (status) => {
     const colors = {
@@ -109,12 +105,18 @@ const Dashboard = () => {
     return colors[priority] || 'default'
   }
 
-  const stats = {
-    total: tasks.length,
-    running: tasks.filter(t => t.status === 'running').length,
-    completed: tasks.filter(t => t.status === 'completed').length,
-    failed: tasks.filter(t => t.status === 'failed').length
+  // Format task data for display
+  const formatTask = (task) => {
+    if (!task) return null
+    return {
+      ...task,
+      assignee: task.assignee ? `${task.assignee.firstName} ${task.assignee.lastName}` : 'Unassigned',
+      createdAt: task.createdAt ? dayjs(task.createdAt) : dayjs(),
+      deadline: task.deadline ? dayjs(task.deadline) : null
+    }
   }
+
+  const displayTasks = tasks.map(formatTask).filter(Boolean)
 
   const columns = [
     {
@@ -182,59 +184,67 @@ const Dashboard = () => {
       <Title level={2}>Dashboard</Title>
       <Divider />
       
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Total Tasks"
-              value={stats.total}
-              prefix={<TeamOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Running"
-              value={stats.running}
-              prefix={<SyncOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Completed"
-              value={stats.completed}
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#3f8600' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Failed"
-              value={stats.failed}
-              prefix={<CloseCircleOutlined />}
-              valueStyle={{ color: '#cf1322' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {loading ? (
+        <Spin size="large" style={{ display: 'block', textAlign: 'center', padding: '50px' }} />
+      ) : (
+        <>
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Col xs={24} sm={12} lg={6}>
+              <Card>
+                <Statistic
+                  title="Total Tasks"
+                  value={displayStats.total}
+                  prefix={<TeamOutlined />}
+                  valueStyle={{ color: '#1890ff' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card>
+                <Statistic
+                  title="Running"
+                  value={displayStats.running}
+                  prefix={<SyncOutlined />}
+                  valueStyle={{ color: '#1890ff' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card>
+                <Statistic
+                  title="Completed"
+                  value={displayStats.completed}
+                  prefix={<CheckCircleOutlined />}
+                  valueStyle={{ color: '#3f8600' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card>
+                <Statistic
+                  title="Failed"
+                  value={displayStats.failed}
+                  prefix={<CloseCircleOutlined />}
+                  valueStyle={{ color: '#cf1322' }}
+                />
+              </Card>
+            </Col>
+          </Row>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
           <Card title="Recent Tasks" extra={<Button type="link">View All</Button>}>
-            <Table
-              dataSource={tasks}
-              columns={columns}
-              rowKey="id"
-              pagination={{ pageSize: 5 }}
-              size="middle"
-            />
+            {displayTasks.length > 0 ? (
+              <Table
+                dataSource={displayTasks}
+                columns={columns}
+                rowKey="id"
+                pagination={{ pageSize: 5 }}
+                size="middle"
+              />
+            ) : (
+              <Empty description="No tasks found" />
+            )}
           </Card>
         </Col>
         <Col xs={24} lg={8}>
@@ -290,6 +300,8 @@ const Dashboard = () => {
           </Card>
         </Col>
       </Row>
+        </>
+      )}
     </div>
   )
 }
