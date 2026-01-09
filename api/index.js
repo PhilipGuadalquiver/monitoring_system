@@ -62,6 +62,15 @@ const checkDatabase = (req, res, next) => {
   next()
 }
 
+// Root API endpoint
+app.get('/api', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'API is working!',
+    timestamp: new Date().toISOString()
+  })
+})
+
 // Health check - works even without database
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -605,8 +614,8 @@ app.use('/api/*', (req, res) => {
   })
 })
 
-// Export for Vercel - Express app as serverless function
-// Vercel will automatically handle Express apps in the /api directory
+// Export for Vercel serverless function
+// Vercel automatically detects Express apps in /api directory
 export default app
 
 // Graceful cleanup for serverless functions
