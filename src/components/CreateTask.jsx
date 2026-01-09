@@ -93,25 +93,47 @@ const CreateTask = () => {
   const onFinish = async (values) => {
     setLoading(true)
     try {
+      // Validate required fields
+      if (!values.name || values.name.trim() === '') {
+        message.error('Task name is required')
+        setLoading(false)
+        return
+      }
+
+      if (!values.assignee) {
+        message.error('Please select an assignee')
+        setLoading(false)
+        return
+      }
+
       // Get current user ID (in real app, get from auth context)
-      const currentUserId = users[0]?.id || values.assigneeId
+      const currentUserId = users[0]?.id || values.assignee
+      
+      if (!currentUserId) {
+        message.error('Unable to determine current user. Please ensure users are loaded.')
+        setLoading(false)
+        return
+      }
       
       const taskData = {
-        name: values.name,
-        description: values.description,
-        priority: values.priority,
-        category: values.category,
+        name: values.name.trim(),
+        description: values.description?.trim() || null,
+        priority: values.priority || 'medium',
+        category: values.category || 'data',
         assigneeId: values.assignee,
         createdById: currentUserId,
         startDate: values.startDate ? values.startDate.toISOString() : null,
         deadline: values.deadline ? values.deadline.toISOString() : null,
-        estimatedDuration: values.duration,
-        color: values.color?.toHexString?.() || values.color,
-        executionMode: values.executionMode,
-        autoRetry: values.autoRetry,
+        estimatedDuration: values.duration || null,
+        color: values.color?.toHexString?.() || values.color || null,
+        executionMode: values.executionMode || null,
+        autoRetry: values.autoRetry || false,
         retryCount: values.retryCount || 0,
-        timeout: values.timeout,
-        tags: values.tags ? values.tags.map(tag => ({ tag })) : []
+        timeout: values.timeout || null,
+        tags: values.tags && values.tags.length > 0 ? values.tags.map(tag => {
+          const tagValue = typeof tag === 'string' ? tag.trim() : (tag.tag || tag).toString().trim()
+          return { tag: tagValue }
+        }).filter(t => t.tag) : []
       }
 
       await tasksAPI.create(taskData)
@@ -120,6 +142,7 @@ const CreateTask = () => {
         navigate('/monitor')
       }, 1500)
     } catch (error) {
+      console.error('Error creating task:', error)
       message.error(error.message || 'Failed to create task')
     } finally {
       setLoading(false)

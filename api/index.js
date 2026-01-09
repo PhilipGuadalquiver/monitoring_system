@@ -220,10 +220,23 @@ app.post('/api/tasks', async (req, res) => {
       tags
     } = req.body
 
+    // Validate required fields
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Task name is required' })
+    }
+
+    if (!assigneeId) {
+      return res.status(400).json({ error: 'Assignee is required' })
+    }
+
+    if (!createdById) {
+      return res.status(400).json({ error: 'Created by user ID is required' })
+    }
+
     const task = await prisma.task.create({
       data: {
-        name,
-        description,
+        name: name.trim(),
+        description: description?.trim() || null,
         status: status || 'pending',
         priority: priority || 'medium',
         category: category || 'data',
@@ -231,14 +244,16 @@ app.post('/api/tasks', async (req, res) => {
         createdById: createdById || assigneeId,
         startDate: startDate ? new Date(startDate) : null,
         deadline: deadline ? new Date(deadline) : null,
-        estimatedDuration,
-        color,
-        executionMode,
+        estimatedDuration: estimatedDuration || null,
+        color: color || null,
+        executionMode: executionMode || null,
         autoRetry: autoRetry || false,
         retryCount: retryCount || 0,
-        timeout,
-        tags: tags ? {
-          create: tags.map(tag => ({ tag }))
+        timeout: timeout || null,
+        tags: tags && tags.length > 0 ? {
+          create: tags.map(tag => ({ 
+            tag: typeof tag === 'string' ? tag.trim() : (tag.tag || tag).toString().trim()
+          })).filter(t => t.tag)
         } : undefined
       },
       include: {
@@ -248,6 +263,7 @@ app.post('/api/tasks', async (req, res) => {
     })
     res.status(201).json(task)
   } catch (error) {
+    console.error('Error creating task:', error)
     res.status(400).json({ error: error.message })
   }
 })
