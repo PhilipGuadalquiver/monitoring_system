@@ -1,6 +1,19 @@
 import { PrismaClient } from '@prisma/client'
+import { Pool } from 'pg'
+import { PrismaPg } from '@prisma/adapter-pg'
+import dotenv from 'dotenv'
 
-const prisma = new PrismaClient()
+// Load environment variables
+dotenv.config()
+
+// Create PostgreSQL connection pool
+const connectionString = process.env.DATABASE_URL || "postgres://c36cae205a58b40f4b7e15686c2b1e226428dc775292fd87cc3647956918838a:sk_3187x8SVFjrS2JmrNidRF@db.prisma.io:5432/postgres?sslmode=require"
+
+const pool = new Pool({ connectionString })
+const adapter = new PrismaPg(pool)
+
+// Prisma 7 requires an adapter for PostgreSQL
+const prisma = new PrismaClient({ adapter })
 
 async function main() {
   console.log('Seeding database...')

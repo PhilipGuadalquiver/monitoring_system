@@ -15,11 +15,14 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.2.6",
+    "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
+    "@types/pg": "^8.16.0",
     "antd": "^5.12.0",
     "cors": "^2.8.5",
     "dayjs": "^1.11.10",
     "express": "^5.2.1",
+    "pg": "^8.16.3",
     "prisma": "^7.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -31,5 +34,8 @@
     "@vitejs/plugin-react": "^4.2.1",
     "dotenv": "^17.2.3",
     "vite": "^5.0.8"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }
