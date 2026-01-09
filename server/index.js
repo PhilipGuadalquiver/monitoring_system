@@ -4,8 +4,36 @@ import dotenv from 'dotenv'
 import { PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
 
-dotenv.config()
+// Get the directory of the current module
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+// Try to load .env from multiple locations
+// 1. Project root (one level up from server directory)
+// 2. Current working directory
+// 3. Server directory
+const envPaths = [
+  join(__dirname, '..', '.env'),
+  join(process.cwd(), '.env'),
+  join(__dirname, '.env')
+]
+
+let envLoaded = false
+for (const envPath of envPaths) {
+  const result = dotenv.config({ path: envPath })
+  if (!result.error) {
+    envLoaded = true
+    console.log(`📁 Loaded .env from: ${envPath}`)
+    break
+  }
+}
+
+if (!envLoaded) {
+  console.warn('⚠️  Warning: No .env file found. Using environment variables or defaults.')
+}
 
 const app = express()
 
