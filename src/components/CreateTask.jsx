@@ -93,21 +93,28 @@ const CreateTask = () => {
   const onFinish = async (values) => {
     setLoading(true)
     try {
+      // Get ALL form values including those from previous steps
+      // This is necessary because Ant Design only includes values from currently visible fields
+      const allValues = form.getFieldsValue(true)
+      
+      // Merge with the values passed to onFinish (which may only include current step)
+      const mergedValues = { ...allValues, ...values }
+      
       // Validate required fields
-      if (!values.name || values.name.trim() === '') {
+      if (!mergedValues.name || (typeof mergedValues.name === 'string' && mergedValues.name.trim() === '')) {
         message.error('Task name is required')
         setLoading(false)
         return
       }
 
-      if (!values.assignee) {
+      if (!mergedValues.assignee) {
         message.error('Please select an assignee')
         setLoading(false)
         return
       }
 
       // Get current user ID (in real app, get from auth context)
-      const currentUserId = users[0]?.id || values.assignee
+      const currentUserId = users[0]?.id || mergedValues.assignee
       
       if (!currentUserId) {
         message.error('Unable to determine current user. Please ensure users are loaded.')
@@ -116,21 +123,21 @@ const CreateTask = () => {
       }
       
       const taskData = {
-        name: values.name.trim(),
-        description: values.description?.trim() || null,
-        priority: values.priority || 'medium',
-        category: values.category || 'data',
-        assigneeId: values.assignee,
+        name: typeof mergedValues.name === 'string' ? mergedValues.name.trim() : String(mergedValues.name || '').trim(),
+        description: mergedValues.description ? (typeof mergedValues.description === 'string' ? mergedValues.description.trim() : String(mergedValues.description)) : null,
+        priority: mergedValues.priority || 'medium',
+        category: mergedValues.category || 'data',
+        assigneeId: mergedValues.assignee,
         createdById: currentUserId,
-        startDate: values.startDate ? values.startDate.toISOString() : null,
-        deadline: values.deadline ? values.deadline.toISOString() : null,
-        estimatedDuration: values.duration || null,
-        color: values.color?.toHexString?.() || values.color || null,
-        executionMode: values.executionMode || null,
-        autoRetry: values.autoRetry || false,
-        retryCount: values.retryCount || 0,
-        timeout: values.timeout || null,
-        tags: values.tags && values.tags.length > 0 ? values.tags.map(tag => {
+        startDate: mergedValues.startDate ? mergedValues.startDate.toISOString() : null,
+        deadline: mergedValues.deadline ? mergedValues.deadline.toISOString() : null,
+        estimatedDuration: mergedValues.duration || null,
+        color: mergedValues.color?.toHexString?.() || mergedValues.color || null,
+        executionMode: mergedValues.executionMode || null,
+        autoRetry: mergedValues.autoRetry || false,
+        retryCount: mergedValues.retryCount || 0,
+        timeout: mergedValues.timeout || null,
+        tags: mergedValues.tags && mergedValues.tags.length > 0 ? mergedValues.tags.map(tag => {
           const tagValue = typeof tag === 'string' ? tag.trim() : (tag.tag || tag).toString().trim()
           return { tag: tagValue }
         }).filter(t => t.tag) : []
@@ -180,6 +187,7 @@ const CreateTask = () => {
           form={form}
           layout="vertical"
           onFinish={onFinish}
+          preserve={true}
           initialValues={{
             priority: 'medium',
             category: 'data',
