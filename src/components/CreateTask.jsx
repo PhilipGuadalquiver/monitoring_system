@@ -425,7 +425,16 @@ const CreateTask = () => {
                 <Mentions
                   rows={3}
                   placeholder="Add notes or mention team members with @"
-                  options={assigneeOptions.map(name => ({ value: name, label: name }))}
+                  options={assigneeOptions.map(option => ({ 
+                    value: typeof option === 'string' ? option : (option.value || option.label || option.text || '').toString(),
+                    label: typeof option === 'string' ? option : (option.label || option.text || option.value || '').toString()
+                  }))}
+                  filterOption={(input, option) => {
+                    const value = (option?.value || '').toString().toLowerCase()
+                    const label = (option?.label || '').toString().toLowerCase()
+                    const search = (input || '').toString().toLowerCase()
+                    return value.includes(search) || label.includes(search)
+                  }}
                 />
               </Form.Item>
             </>
