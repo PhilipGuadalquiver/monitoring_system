@@ -56,6 +56,7 @@ import {
   InfoCircleOutlined
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { tasksAPI, usersAPI } from '../services/api'
 
 const { Title, Text, Paragraph } = Typography
 const { Panel } = Collapse
@@ -68,65 +69,89 @@ const TaskDetails = () => {
   const [task, setTask] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [commentModalVisible, setCommentModalVisible] = useState(false)
+  const [users, setUsers] = useState([])
   const [form] = Form.useForm()
 
   useEffect(() => {
-    // Simulate loading task data
-    setTimeout(() => {
-      setTask({
-        id: id,
-        name: 'Data Processing Task',
-        description: 'This task involves processing large amounts of data from multiple sources, cleaning and transforming it, and generating comprehensive reports.',
-        status: 'running',
-        progress: 65,
-        priority: 'high',
-        category: 'data',
-        assignee: 'John Doe',
-        createdAt: dayjs().subtract(2, 'hour'),
-        deadline: dayjs().add(5, 'hour'),
-        duration: '3h 45m',
-        estimatedDuration: '6 hours',
-        logs: [
-          { time: dayjs().subtract(2, 'hour'), message: 'Task initialized', type: 'info' },
-          { time: dayjs().subtract(1, 'hour', 50, 'minute'), message: 'Data source connected', type: 'success' },
-          { time: dayjs().subtract(1, 'hour', 30, 'minute'), message: 'Processing started', type: 'info' },
-          { time: dayjs().subtract(45, 'minute'), message: '25% complete', type: 'info' },
-          { time: dayjs().subtract(30, 'minute'), message: '50% complete', type: 'info' },
-          { time: dayjs().subtract(15, 'minute'), message: '65% complete', type: 'info' },
-          { time: dayjs().subtract(5, 'minute'), message: 'Processing batch 3 of 5', type: 'info' }
-        ],
-        metrics: {
-          cpuUsage: 45,
-          memoryUsage: 68,
-          diskIO: 120,
-          networkIO: 85,
-          throughput: 1250
-        },
-        steps: [
-          { title: 'Initialization', status: 'finish', description: 'Task setup completed' },
-          { title: 'Data Collection', status: 'finish', description: 'All sources connected' },
-          { title: 'Data Processing', status: 'process', description: 'Currently processing' },
-          { title: 'Data Validation', status: 'wait', description: 'Pending' },
-          { title: 'Report Generation', status: 'wait', description: 'Pending' },
-          { title: 'Completion', status: 'wait', description: 'Pending' }
-        ],
-        files: [
-          { name: 'input_data.csv', size: '2.5 MB', type: 'input', uploaded: dayjs().subtract(2, 'hour') },
-          { name: 'config.json', size: '15 KB', type: 'config', uploaded: dayjs().subtract(2, 'hour') },
-          { name: 'output_report.pdf', size: '1.2 MB', type: 'output', uploaded: dayjs().subtract(30, 'minute') }
-        ],
-        comments: [
-          { user: 'John Doe', time: dayjs().subtract(1, 'hour'), text: 'Processing is going smoothly' },
-          { user: 'Jane Smith', time: dayjs().subtract(45, 'minute'), text: 'Great progress!' }
-        ],
-        dependencies: [
-          { id: '2', name: 'System Backup', status: 'completed' },
-          { id: '5', name: 'Security Scan', status: 'running' }
-        ]
-      })
-      setLoading(false)
-    }, 1000)
+    fetchTask()
+    fetchUsers()
   }, [id])
+
+  const fetchTask = async () => {
+    setLoading(true)
+    try {
+      const taskData = await tasksAPI.getById(id)
+      setTask(taskData)
+    } catch (error) {
+      console.error('Error fetching task:', error)
+      message.error('Failed to load task')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchUsers = async () => {
+    try {
+      const usersData = await usersAPI.getAll()
+      setUsers(usersData)
+    } catch (error) {
+      console.error('Error fetching users:', error)
+    }
+  }
+
+  const handleAddComment = async (values) => {
+    try {
+      // Get current user ID (in real app, get from auth context)
+      const currentUserId = users[0]?.id
+      if (!currentUserId) {
+        message.error('User not found')
+        return
+      }
+      
+      await tasksAPI.addComment(id, currentUserId, values.comment)
+      message.success('Comment added successfully')
+      form.resetFields()
+      setCommentModalVisible(false)
+      fetchTask() // Refresh task data
+    } catch (error) {
+      message.error('Failed to add comment')
+    }
+  }
+
+  // Format task data for display
+  const formatTask = (taskData) => {
+    if (!taskData) return null
+    
+    // Determine steps based on status and progress
+    const steps = [
+      { title: 'Initialization', status: 'finish', description: 'Task setup completed' },
+      { title: 'Data Collection', status: taskData.progress > 10 ? 'finish' : 'wait', description: 'All sources connected' },
+      { title: 'Data Processing', status: taskData.status === 'running' ? 'process' : taskData.progress > 50 ? 'finish' : 'wait', description: 'Currently processing' },
+      { title: 'Data Validation', status: taskData.progress > 75 ? 'process' : 'wait', description: 'Pending' },
+      { title: 'Report Generation', status: taskData.progress > 90 ? 'process' : 'wait', description: 'Pending' },
+      { title: 'Completion', status: taskData.status === 'completed' ? 'finish' : 'wait', description: 'Pending' }
+    ]
+
+    return {
+      ...taskData,
+      assignee: taskData.assignee ? `${taskData.assignee.firstName} ${taskData.assignee.lastName}` : 'Unassigned',
+      createdAt: taskData.createdAt ? dayjs(taskData.createdAt) : dayjs(),
+      deadline: taskData.deadline ? dayjs(taskData.deadline) : null,
+      estimatedDuration: taskData.estimatedDuration ? `${taskData.estimatedDuration} hours` : 'N/A',
+      steps,
+      metrics: taskData.metrics && taskData.metrics.length > 0 ? taskData.metrics[0] : {
+        cpuUsage: 0,
+        memoryUsage: 0,
+        diskIO: 0,
+        networkIO: 0,
+        throughput: 0
+      },
+      dependencies: taskData.dependencies || [],
+      comments: taskData.comments || []
+    }
+  }
+
+  const displayTask = formatTask(task)
 
   const getStatusColor = (status) => {
     const colors = {
@@ -228,7 +253,7 @@ const TaskDetails = () => {
     )
   }
 
-  if (!task) {
+  if (!displayTask) {
     return (
       <Result
         status="404"
@@ -243,13 +268,13 @@ const TaskDetails = () => {
     )
   }
 
-  const metricData = [
-    { key: '1', name: 'CPU Usage', value: task.metrics.cpuUsage, unit: '%' },
-    { key: '2', name: 'Memory Usage', value: task.metrics.memoryUsage, unit: '%' },
-    { key: '3', name: 'Disk I/O', value: task.metrics.diskIO, unit: 'MB/s' },
-    { key: '4', name: 'Network I/O', value: task.metrics.networkIO, unit: 'MB/s' },
-    { key: '5', name: 'Throughput', value: task.metrics.throughput, unit: 'records/sec' }
-  ]
+  const metricData = displayTask ? [
+    { key: '1', name: 'CPU Usage', value: displayTask.metrics.cpuUsage, unit: '%' },
+    { key: '2', name: 'Memory Usage', value: displayTask.metrics.memoryUsage, unit: '%' },
+    { key: '3', name: 'Disk I/O', value: displayTask.metrics.diskIO, unit: 'MB/s' },
+    { key: '4', name: 'Network I/O', value: displayTask.metrics.networkIO, unit: 'MB/s' },
+    { key: '5', name: 'Throughput', value: displayTask.metrics.throughput, unit: 'records/sec' }
+  ] : []
 
   return (
     <div>
@@ -261,15 +286,15 @@ const TaskDetails = () => {
                 Back
               </Button>
               <Divider type="vertical" />
-              <Title level={3} style={{ margin: 0 }}>{task.name}</Title>
+              <Title level={3} style={{ margin: 0 }}>{displayTask.name}</Title>
             </Space>
           </Col>
           <Col>
             <Space>
-              {task.status === 'running' && (
+              {displayTask.status === 'running' && (
                 <Button icon={<PauseCircleOutlined />}>Pause</Button>
               )}
-              {task.status === 'pending' && (
+              {displayTask.status === 'pending' && (
                 <Button type="primary" icon={<PlayCircleOutlined />}>Start</Button>
               )}
               <Button icon={<ReloadOutlined />}>Refresh</Button>
@@ -294,50 +319,50 @@ const TaskDetails = () => {
                     <>
                       <Descriptions column={2} bordered>
                         <Descriptions.Item label="Status" span={2}>
-                          <Tag icon={getStatusIcon(task.status)} color={getStatusColor(task.status)} size="large">
-                            {task.status.toUpperCase()}
+                          <Tag icon={getStatusIcon(displayTask.status)} color={getStatusColor(displayTask.status)} size="large">
+                            {displayTask.status.toUpperCase()}
                           </Tag>
                         </Descriptions.Item>
                         <Descriptions.Item label="Progress">
-                          <Progress percent={task.progress} status={task.status === 'failed' ? 'exception' : 'active'} />
+                          <Progress percent={displayTask.progress} status={displayTask.status === 'failed' ? 'exception' : 'active'} />
                         </Descriptions.Item>
                         <Descriptions.Item label="Priority">
-                          <Tag color={getPriorityColor(task.priority)} icon={<FlagOutlined />}>
-                            {task.priority.toUpperCase()}
+                          <Tag color={getPriorityColor(displayTask.priority)} icon={<FlagOutlined />}>
+                            {displayTask.priority.toUpperCase()}
                           </Tag>
                         </Descriptions.Item>
                         <Descriptions.Item label="Category">
-                          <Tag>{task.category}</Tag>
+                          <Tag>{displayTask.category}</Tag>
                         </Descriptions.Item>
                         <Descriptions.Item label="Assignee">
                           <Space>
                             <Avatar icon={<UserOutlined />} />
-                            {task.assignee}
+                            {displayTask.assignee}
                           </Space>
                         </Descriptions.Item>
                         <Descriptions.Item label="Created" span={2}>
                           <Space>
                             <CalendarOutlined />
-                            {dayjs(task.createdAt).format('YYYY-MM-DD HH:mm:ss')}
+                            {displayTask.createdAt.format('YYYY-MM-DD HH:mm:ss')}
                           </Space>
                         </Descriptions.Item>
                         <Descriptions.Item label="Deadline" span={2}>
                           <Space>
                             <CalendarOutlined />
-                            {dayjs(task.deadline).format('YYYY-MM-DD HH:mm:ss')}
+                            {displayTask.deadline ? displayTask.deadline.format('YYYY-MM-DD HH:mm:ss') : 'N/A'}
                           </Space>
                         </Descriptions.Item>
-                        <Descriptions.Item label="Duration">{task.duration}</Descriptions.Item>
-                        <Descriptions.Item label="Estimated Duration">{task.estimatedDuration}</Descriptions.Item>
+                        <Descriptions.Item label="Duration">{displayTask.duration || 'N/A'}</Descriptions.Item>
+                        <Descriptions.Item label="Estimated Duration">{displayTask.estimatedDuration}</Descriptions.Item>
                         <Descriptions.Item label="Description" span={2}>
-                          <Paragraph>{task.description}</Paragraph>
+                          <Paragraph>{displayTask.description || 'No description'}</Paragraph>
                         </Descriptions.Item>
                       </Descriptions>
 
                       <Divider>Process Steps</Divider>
                       <Steps
-                        current={task.steps.findIndex(s => s.status === 'process')}
-                        items={task.steps}
+                        current={displayTask.steps.findIndex(s => s.status === 'process')}
+                        items={displayTask.steps}
                       />
                     </>
                   )
@@ -360,7 +385,7 @@ const TaskDetails = () => {
                       <Col span={24}>
                         <Card title="Activity Timeline">
                           <Timeline
-                            items={task.logs.map((log, index) => ({
+                            items={(displayTask.logs || []).map((log, index) => ({
                               key: index,
                               dot: getLogIcon(log.type),
                               children: (
@@ -384,7 +409,7 @@ const TaskDetails = () => {
                   label: 'Files',
                   children: (
                     <Table
-                      dataSource={task.files}
+                      dataSource={displayTask.files || []}
                       columns={fileColumns}
                       rowKey="name"
                       pagination={false}
@@ -396,20 +421,20 @@ const TaskDetails = () => {
                   label: 'Dependencies',
                   children: (
                     <List
-                      dataSource={task.dependencies}
+                      dataSource={displayTask.dependencies || []}
                       renderItem={item => (
                         <List.Item
                           actions={[
-                            <Button type="link" onClick={() => navigate(`/task/${item.id}`)}>
+                            <Button type="link" onClick={() => navigate(`/task/${item.dependencyTask?.id || item.id}`)}>
                               View
                             </Button>
                           ]}
                         >
                           <List.Item.Meta
-                            title={item.name}
+                            title={item.dependencyTask?.name || item.name}
                             description={
-                              <Tag color={getStatusColor(item.status)}>
-                                {item.status}
+                              <Tag color={getStatusColor(item.dependencyTask?.status || item.status)}>
+                                {item.dependencyTask?.status || item.status}
                               </Tag>
                             }
                           />
@@ -424,17 +449,17 @@ const TaskDetails = () => {
                   children: (
                     <>
                       <List
-                        dataSource={task.comments}
+                        dataSource={displayTask.comments || []}
                         renderItem={item => (
                           <List.Item>
                             <List.Item.Meta
                               avatar={<Avatar icon={<UserOutlined />} />}
-                              title={item.user}
+                              title={item.user ? `${item.user.firstName} ${item.user.lastName}` : 'Unknown User'}
                               description={
                                 <div>
                                   <Paragraph>{item.text}</Paragraph>
                                   <Text type="secondary" style={{ fontSize: 12 }}>
-                                    {dayjs(item.time).format('YYYY-MM-DD HH:mm')}
+                                    {dayjs(item.createdAt).format('YYYY-MM-DD HH:mm')}
                                   </Text>
                                 </div>
                               }
@@ -459,14 +484,14 @@ const TaskDetails = () => {
             <Card title="Quick Stats">
               <Statistic
                 title="Progress"
-                value={task.progress}
+                value={displayTask.progress}
                 suffix="%"
                 valueStyle={{ color: '#1890ff' }}
               />
               <Divider />
               <Statistic
                 title="Time Remaining"
-                value={dayjs(task.deadline).diff(dayjs(), 'hour')}
+                value={displayTask.deadline ? displayTask.deadline.diff(dayjs(), 'hour') : 0}
                 suffix="hours"
                 valueStyle={{ color: '#3f8600' }}
               />
@@ -474,13 +499,13 @@ const TaskDetails = () => {
 
             <Card title="Actions">
               <Space direction="vertical" style={{ width: '100%' }}>
-                {task.status === 'running' && (
+                {displayTask.status === 'running' && (
                   <>
                     <Button block icon={<PauseCircleOutlined />}>Pause Task</Button>
                     <Button block danger icon={<StopOutlined />}>Stop Task</Button>
                   </>
                 )}
-                {task.status === 'pending' && (
+                {displayTask.status === 'pending' && (
                   <Button block type="primary" icon={<PlayCircleOutlined />}>Start Task</Button>
                 )}
                 <Button block icon={<ReloadOutlined />}>Restart Task</Button>
@@ -492,11 +517,11 @@ const TaskDetails = () => {
             <Card title="Related Tasks">
               <List
                 size="small"
-                dataSource={task.dependencies}
+                dataSource={displayTask.dependencies || []}
                 renderItem={item => (
                   <List.Item>
-                    <Button type="link" onClick={() => navigate(`/task/${item.id}`)}>
-                      {item.name}
+                    <Button type="link" onClick={() => navigate(`/task/${item.dependencyTask?.id || item.id}`)}>
+                      {item.dependencyTask?.name || item.name}
                     </Button>
                   </List.Item>
                 )}
@@ -510,11 +535,7 @@ const TaskDetails = () => {
         title="Add Comment"
         open={commentModalVisible}
         onOk={() => {
-          form.validateFields().then(() => {
-            message.success('Comment added')
-            form.resetFields()
-            setCommentModalVisible(false)
-          })
+          form.validateFields().then(handleAddComment)
         }}
         onCancel={() => {
           form.resetFields()

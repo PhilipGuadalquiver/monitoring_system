@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Form,
   Input,
@@ -37,6 +37,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
+import { tasksAPI, usersAPI } from '../services/api'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -48,6 +49,25 @@ const CreateTask = () => {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [users, setUsers] = useState([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  const fetchUsers = async () => {
+    setLoadingUsers(true)
+    try {
+      const usersData = await usersAPI.getAll()
+      setUsers(usersData)
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      message.error('Failed to load users')
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
 
   const priorityOptions = [
     { value: 'low', label: 'Low' },
@@ -64,24 +84,43 @@ const CreateTask = () => {
     { value: 'migration', label: 'Migration' }
   ]
 
-  const assigneeOptions = [
-    'John Doe',
-    'Jane Smith',
-    'Bob Wilson',
-    'Alice Brown',
-    'Charlie Davis'
-  ]
+  const assigneeOptions = users.map(user => ({
+    value: user.id,
+    label: `${user.firstName} ${user.lastName}`,
+    text: `${user.firstName} ${user.lastName}`
+  }))
 
   const onFinish = async (values) => {
     setLoading(true)
     try {
-      console.log('Task created:', values)
+      // Get current user ID (in real app, get from auth context)
+      const currentUserId = users[0]?.id || values.assigneeId
+      
+      const taskData = {
+        name: values.name,
+        description: values.description,
+        priority: values.priority,
+        category: values.category,
+        assigneeId: values.assignee,
+        createdById: currentUserId,
+        startDate: values.startDate ? values.startDate.toISOString() : null,
+        deadline: values.deadline ? values.deadline.toISOString() : null,
+        estimatedDuration: values.duration,
+        color: values.color?.toHexString?.() || values.color,
+        executionMode: values.executionMode,
+        autoRetry: values.autoRetry,
+        retryCount: values.retryCount || 0,
+        timeout: values.timeout,
+        tags: values.tags ? values.tags.map(tag => ({ tag })) : []
+      }
+
+      await tasksAPI.create(taskData)
       message.success('Task created successfully!')
       setTimeout(() => {
         navigate('/monitor')
       }, 1500)
     } catch (error) {
-      message.error('Failed to create task')
+      message.error(error.message || 'Failed to create task')
     } finally {
       setLoading(false)
     }
@@ -185,13 +224,21 @@ const CreateTask = () => {
                 name="assignee"
                 rules={[{ required: true, message: 'Please select assignee' }]}
               >
-                <AutoComplete
-                  options={assigneeOptions.map(name => ({ value: name }))}
-                  placeholder="Select or type assignee name"
-                  filterOption={(inputValue, option) =>
-                    option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+                <Select
+                  placeholder="Select assignee"
+                  size="large"
+                  loading={loadingUsers}
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                   }
-                />
+                >
+                  {assigneeOptions.map(option => (
+                    <Option key={option.value} value={option.value}>
+                      {option.label}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
             </>
           )}
@@ -245,7 +292,7 @@ const CreateTask = () => {
                 <Select
                   mode="tags"
                   style={{ width: '100%' }}
-                  placeholder="Add tags"
+                  placeholder="Add tags (press Enter to add)"
                   tokenSeparators={[',']}
                 />
               </Form.Item>
@@ -253,25 +300,13 @@ const CreateTask = () => {
               <Form.Item
                 label="Dependencies"
                 name="dependencies"
+                tooltip="Select tasks that must complete before this task starts"
               >
                 <TreeSelect
-                  treeData={[
-                    {
-                      title: 'Task 1',
-                      value: 'task1',
-                      children: [
-                        { title: 'Sub-task 1.1', value: 'task1.1' },
-                        { title: 'Sub-task 1.2', value: 'task1.2' },
-                      ],
-                    },
-                    {
-                      title: 'Task 2',
-                      value: 'task2',
-                    },
-                  ]}
+                  placeholder="Select dependent tasks (optional)"
+                  allowClear
                   treeCheckable
                   showCheckedStrategy="SHOW_PARENT"
-                  placeholder="Select dependent tasks"
                 />
               </Form.Item>
 

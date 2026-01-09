@@ -53,6 +53,8 @@ import {
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
+import { tasksAPI } from '../services/api'
+import { message } from 'antd'
 
 const { Title, Text } = Typography
 const { Search } = Input
@@ -61,7 +63,7 @@ const { RangePicker } = DatePicker
 
 const TaskMonitor = () => {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [selectedRowKeys, setSelectedRowKeys] = useState([])
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
@@ -69,74 +71,69 @@ const TaskMonitor = () => {
   const [searchText, setSearchText] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [tasks, setTasks] = useState([])
+  const [stats, setStats] = useState({
+    total: 0,
+    running: 0,
+    completed: 0,
+    failed: 0,
+    pending: 0
+  })
 
-  const [tasks, setTasks] = useState([
-    {
-      id: '1',
-      name: 'Data Processing Task',
-      status: 'running',
-      progress: 65,
-      priority: 'high',
-      category: 'data',
-      assignee: 'John Doe',
-      createdAt: dayjs().subtract(2, 'hour'),
-      deadline: dayjs().add(5, 'hour'),
-      duration: '3h 45m',
-      logs: ['Task started', 'Processing data...', '65% complete']
-    },
-    {
-      id: '2',
-      name: 'System Backup',
-      status: 'completed',
-      progress: 100,
-      priority: 'medium',
-      category: 'backup',
-      assignee: 'Jane Smith',
-      createdAt: dayjs().subtract(1, 'day'),
-      deadline: dayjs().subtract(1, 'day').add(3, 'hour'),
-      duration: '2h 15m',
-      logs: ['Backup initiated', 'Files copied', 'Verification complete', 'Backup successful']
-    },
-    {
-      id: '3',
-      name: 'Report Generation',
-      status: 'pending',
-      progress: 0,
-      priority: 'low',
-      category: 'report',
-      assignee: 'Bob Wilson',
-      createdAt: dayjs().subtract(30, 'minute'),
-      deadline: dayjs().add(2, 'day'),
-      duration: '-',
-      logs: ['Task queued']
-    },
-    {
-      id: '4',
-      name: 'Database Migration',
-      status: 'failed',
-      progress: 45,
-      priority: 'high',
-      category: 'migration',
-      assignee: 'Alice Brown',
-      createdAt: dayjs().subtract(3, 'hour'),
-      deadline: dayjs().add(1, 'day'),
-      duration: '1h 20m',
-      logs: ['Migration started', 'Schema updated', 'Data transfer failed', 'Rollback initiated']
-    },
-    {
-      id: '5',
-      name: 'Security Scan',
-      status: 'running',
-      progress: 30,
-      priority: 'critical',
-      category: 'system',
-      assignee: 'Charlie Davis',
-      createdAt: dayjs().subtract(1, 'hour'),
-      deadline: dayjs().add(4, 'hour'),
-      duration: '1h 30m',
-      logs: ['Scan initiated', 'Scanning files...', '30% complete']
+  useEffect(() => {
+    fetchTasks()
+  }, [filterStatus])
+
+  const fetchTasks = async () => {
+    setLoading(true)
+    try {
+      const filters = filterStatus !== 'all' ? { status: filterStatus } : {}
+      const tasksData = await tasksAPI.getAll(filters)
+      setTasks(tasksData)
+      
+      // Calculate stats
+      setStats({
+        total: tasksData.length,
+        running: tasksData.filter(t => t.status === 'running').length,
+        completed: tasksData.filter(t => t.status === 'completed').length,
+        failed: tasksData.filter(t => t.status === 'failed').length,
+        pending: tasksData.filter(t => t.status === 'pending').length
+      })
+    } catch (error) {
+      console.error('Error fetching tasks:', error)
+      message.error('Failed to load tasks')
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
+
+  const handleDelete = async (id) => {
+    try {
+      await tasksAPI.delete(id)
+      message.success('Task deleted successfully')
+      fetchTasks()
+    } catch (error) {
+      message.error('Failed to delete task')
+    }
+  }
+
+  const handleRefresh = () => {
+    fetchTasks()
+  }
+
+  // Format task for display
+  const formatTask = (task) => {
+    if (!task) return null
+    return {
+      ...task,
+      assignee: task.assignee ? `${task.assignee.firstName} ${task.assignee.lastName}` : 'Unassigned',
+      createdAt: task.createdAt ? dayjs(task.createdAt) : dayjs(),
+      deadline: task.deadline ? dayjs(task.deadline) : null,
+      logs: task.logs ? task.logs.map(log => log.message) : []
+    }
+  }
+
+  const displayTasks = tasks.map(formatTask).filter(Boolean)
 
   const getStatusColor = (status) => {
     const colors = {
@@ -168,11 +165,10 @@ const TaskMonitor = () => {
     return colors[priority] || 'default'
   }
 
-  const filteredTasks = tasks.filter(task => {
-    const matchesStatus = filterStatus === 'all' || task.status === filterStatus
+  const filteredTasks = displayTasks.filter(task => {
     const matchesSearch = task.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                         task.assignee.toLowerCase().includes(searchText.toLowerCase())
-    return matchesStatus && matchesSearch
+                         (task.assignee && task.assignee.toLowerCase().includes(searchText.toLowerCase()))
+    return matchesSearch
   })
 
   const columns = [
@@ -281,9 +277,7 @@ const TaskMonitor = () => {
           )}
           <Popconfirm
             title="Are you sure you want to delete this task?"
-            onConfirm={() => {
-              setTasks(tasks.filter(t => t.id !== record.id))
-            }}
+            onConfirm={() => handleDelete(record.id)}
           >
             <Tooltip title="Delete">
               <Button type="text" danger icon={<DeleteOutlined />} />
@@ -340,14 +334,28 @@ const TaskMonitor = () => {
                   <Option value="pending">Pending</Option>
                   <Option value="failed">Failed</Option>
                 </Select>
-                <Button icon={<ReloadOutlined />} onClick={() => setLoading(!loading)}>
+                <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
                   Refresh
                 </Button>
                 <Button icon={<ExportOutlined />}>Export</Button>
                 {selectedRowKeys.length > 0 && (
-                  <Button danger>
-                    Delete Selected ({selectedRowKeys.length})
-                  </Button>
+                  <Popconfirm
+                    title={`Are you sure you want to delete ${selectedRowKeys.length} task(s)?`}
+                    onConfirm={async () => {
+                      try {
+                        await Promise.all(selectedRowKeys.map(id => tasksAPI.delete(id)))
+                        message.success(`${selectedRowKeys.length} task(s) deleted successfully`)
+                        setSelectedRowKeys([])
+                        fetchTasks()
+                      } catch (error) {
+                        message.error('Failed to delete tasks')
+                      }
+                    }}
+                  >
+                    <Button danger>
+                      Delete Selected ({selectedRowKeys.length})
+                    </Button>
+                  </Popconfirm>
                 )}
               </Space>
             </Col>
@@ -394,27 +402,32 @@ const TaskMonitor = () => {
         </Col>
       </Row>
 
-      <Card>
-        <Table
-          rowSelection={rowSelection}
-          dataSource={filteredTasks}
-          columns={columns}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            current: currentPage,
-            pageSize: pageSize,
-            total: filteredTasks.length,
-            showSizeChanger: true,
-            showTotal: (total) => `Total ${total} tasks`,
-            onChange: (page, size) => {
-              setCurrentPage(page)
-              setPageSize(size)
-            }
-          }}
-          scroll={{ x: 1200 }}
-        />
-      </Card>
+      {loading && tasks.length === 0 ? (
+        <Spin size="large" style={{ display: 'block', textAlign: 'center', padding: '50px' }} />
+      ) : (
+
+        <Card>
+          <Table
+            rowSelection={rowSelection}
+            dataSource={filteredTasks}
+            columns={columns}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              current: currentPage,
+              pageSize: pageSize,
+              total: filteredTasks.length,
+              showSizeChanger: true,
+              showTotal: (total) => `Total ${total} tasks`,
+              onChange: (page, size) => {
+                setCurrentPage(page)
+                setPageSize(size)
+              }
+            }}
+            scroll={{ x: 1200 }}
+          />
+        </Card>
+      )}
 
       <Drawer
         title="Task Details"
@@ -474,12 +487,16 @@ const TaskMonitor = () => {
                 key: '2',
                 label: 'Logs',
                 children: (
-                  <Timeline
-                    items={selectedTask.logs.map((log, index) => ({
-                      key: index,
-                      children: log
-                    }))}
-                  />
+                  {selectedTask.logs && selectedTask.logs.length > 0 ? (
+                    <Timeline
+                      items={selectedTask.logs.map((log, index) => ({
+                        key: index,
+                        children: typeof log === 'string' ? log : log.message
+                      }))}
+                    />
+                  ) : (
+                    <Empty description="No logs available" />
+                  )}
                 )
               }
             ]}
