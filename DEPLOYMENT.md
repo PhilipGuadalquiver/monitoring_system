@@ -83,3 +83,12 @@ The `api/index.js` file is configured for Vercel serverless functions.
 4. Redeploy the project
 
 The API routes in `api/index.js` will be automatically available at `/api/*` when deployed to Vercel.
+
+## Database Seeding in Production
+
+See `SEED_PRODUCTION.md` for detailed instructions on how to seed your production database.
+
+**Quick Method (Recommended):**
+1. Set `SEED_SECRET` environment variable in Vercel
+2. Call: `POST https://your-domain.vercel.app/api/seed?token=your-secret-token`
+3. Your database will be seeded with 3 sample users and tasks

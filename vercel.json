@@ -14,6 +14,9 @@
   "functions": {
     "api/index.js": {
       "runtime": "nodejs18.x"
+    },
+    "api/seed.js": {
+      "runtime": "nodejs18.x"
     }
   }
 }
