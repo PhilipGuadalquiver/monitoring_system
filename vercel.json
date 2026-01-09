@@ -4,19 +4,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api"
+      "destination": "/api/index.js"
     },
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "api/index.js": {
-      "runtime": "nodejs18.x"
-    },
-    "api/seed.js": {
-      "runtime": "nodejs18.x"
-    }
-  }
+  ]
 }

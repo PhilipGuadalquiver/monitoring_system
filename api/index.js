@@ -472,7 +472,8 @@ app.put('/api/settings', async (req, res) => {
   }
 })
 
-// Export for Vercel
+// Export for Vercel - Express app as serverless function
+// Vercel will automatically handle Express apps in the /api directory
 export default app
 
 // Graceful cleanup for serverless functions
