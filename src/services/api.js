@@ -1,8 +1,27 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+// Determine API URL based on environment
+const getApiUrl = () => {
+  // Check for environment variable first
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  
+  // In production, check if we're on Vercel and use relative path
+  if (import.meta.env.PROD) {
+    // If backend is deployed on same domain, use relative path
+    // Otherwise, you need to set VITE_API_URL in Vercel environment variables
+    return '/api'
+  }
+  
+  // Development default
+  return 'http://localhost:5000/api'
+}
+
+const API_BASE_URL = getApiUrl()
 
 const apiRequest = async (endpoint, options = {}) => {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const url = `${API_BASE_URL}${endpoint}`
+    const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
         ...options.headers
@@ -11,13 +30,40 @@ const apiRequest = async (endpoint, options = {}) => {
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Request failed')
+      let errorMessage = 'Request failed'
+      try {
+        const error = await response.json()
+        errorMessage = error.error || errorMessage
+      } catch (e) {
+        // If response is not JSON, use status text
+        errorMessage = response.statusText || `HTTP ${response.status}`
+      }
+      
+      // Provide more helpful error messages
+      if (response.status === 0 || response.status === 503) {
+        errorMessage = 'Backend server is not available. Please ensure the API server is running and accessible.'
+      } else if (response.status === 404) {
+        errorMessage = 'API endpoint not found. Please check the API URL configuration.'
+      } else if (response.status >= 500) {
+        errorMessage = 'Server error. Please try again later.'
+      }
+      
+      throw new Error(errorMessage)
     }
 
     return await response.json()
   } catch (error) {
-    console.error('API Error:', error)
+    console.error('API Error:', {
+      endpoint,
+      url: `${API_BASE_URL}${endpoint}`,
+      error: error.message
+    })
+    
+    // Re-throw with more context
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to the API server. Please check your network connection and ensure the backend is running.')
+    }
+    
     throw error
   }
 }

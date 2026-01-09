@@ -101,7 +101,12 @@ const TaskMonitor = () => {
       })
     } catch (error) {
       console.error('Error fetching tasks:', error)
-      message.error('Failed to load tasks')
+      const errorMessage = error.message || 'Failed to load tasks'
+      message.error({
+        content: errorMessage,
+        duration: 5,
+        style: { marginTop: '20vh' }
+      })
     } finally {
       setLoading(false)
     }
