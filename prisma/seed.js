@@ -9,14 +9,37 @@ dotenv.config()
 // Create PostgreSQL connection pool
 const connectionString = process.env.DATABASE_URL || "postgres://c36cae205a58b40f4b7e15686c2b1e226428dc775292fd87cc3647956918838a:sk_3187x8SVFjrS2JmrNidRF@db.prisma.io:5432/postgres?sslmode=require"
 
+console.log('🔄 Connecting to database...')
+console.log(`📊 Database URL: ${connectionString.replace(/:[^:@]+@/, ':****@')}`) // Hide password in logs
+
 const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 
 // Prisma 7 requires an adapter for PostgreSQL
 const prisma = new PrismaClient({ adapter })
 
+// Test database connection
+async function testConnection() {
+  try {
+    await prisma.$connect()
+    console.log('✅ Database connected successfully!')
+    
+    // Test query to verify connection
+    const userCount = await prisma.user.count()
+    console.log(`📈 Current users in database: ${userCount}`)
+    return true
+  } catch (error) {
+    console.error('❌ Failed to connect to database:', error.message)
+    console.error('Full error:', error)
+    throw error
+  }
+}
+
 async function main() {
-  console.log('Seeding database...')
+  // Test connection first
+  await testConnection()
+  
+  console.log('🌱 Starting database seeding...')
 
   // Clear existing data (optional - comment out if you want to keep existing data)
   console.log('Clearing existing data...')
@@ -206,9 +229,17 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error(e)
+    console.error('❌ Seeding failed:', e.message)
+    console.error('Full error:', e)
     process.exit(1)
   })
   .finally(async () => {
-    await prisma.$disconnect()
+    console.log('🔄 Disconnecting from database...')
+    try {
+      await prisma.$disconnect()
+      await pool.end()
+      console.log('✅ Database disconnected')
+    } catch (error) {
+      console.error('Error disconnecting:', error.message)
+    }
   })

@@ -11,9 +11,37 @@ const app = express()
 
 // Prisma 7 requires an adapter for PostgreSQL
 const connectionString = process.env.DATABASE_URL
+
+if (!connectionString) {
+  console.error('❌ ERROR: DATABASE_URL environment variable is not set!')
+  process.exit(1)
+}
+
+console.log('🔄 Connecting to database...')
+console.log(`📊 Database URL: ${connectionString.replace(/:[^:@]+@/, ':****@')}`) // Hide password in logs
+
 const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
+
+// Test database connection
+async function testConnection() {
+  try {
+    await prisma.$connect()
+    console.log('✅ Database connected successfully!')
+    
+    // Test query to verify connection
+    const userCount = await prisma.user.count()
+    console.log(`📈 Database is ready. Current users in database: ${userCount}`)
+  } catch (error) {
+    console.error('❌ Failed to connect to database:', error.message)
+    console.error('Full error:', error)
+    process.exit(1)
+  }
+}
+
+// Test connection on startup
+testConnection()
 
 const PORT = process.env.PORT || 5000
 
@@ -480,5 +508,22 @@ app.listen(PORT, () => {
 
 // Graceful shutdown
 process.on('beforeExit', async () => {
+  console.log('🔄 Disconnecting from database...')
   await prisma.$disconnect()
+  await pool.end()
+  console.log('✅ Database disconnected')
+})
+
+process.on('SIGINT', async () => {
+  console.log('\n🔄 Shutting down gracefully...')
+  await prisma.$disconnect()
+  await pool.end()
+  process.exit(0)
+})
+
+process.on('SIGTERM', async () => {
+  console.log('\n🔄 Shutting down gracefully...')
+  await prisma.$disconnect()
+  await pool.end()
+  process.exit(0)
 })

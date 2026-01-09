@@ -9,15 +9,38 @@ import { PrismaPg } from '@prisma/adapter-pg'
 const connectionString = process.env.DATABASE_URL
 
 if (!connectionString) {
+  console.error('❌ ERROR: DATABASE_URL environment variable is not set!')
   throw new Error('DATABASE_URL environment variable is not set')
 }
+
+console.log('🔄 Connecting to database for seeding...')
+console.log(`📊 Database URL: ${connectionString.replace(/:[^:@]+@/, ':****@')}`) // Hide password in logs
 
 const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
+// Test connection before seeding
+async function testConnection() {
+  try {
+    await prisma.$connect()
+    console.log('✅ Database connected successfully!')
+    
+    // Test query
+    const userCount = await prisma.user.count()
+    console.log(`📈 Current users in database: ${userCount}`)
+    return true
+  } catch (error) {
+    console.error('❌ Failed to connect to database:', error.message)
+    throw error
+  }
+}
+
 async function seed() {
-  console.log('Seeding database...')
+  // Test connection first
+  await testConnection()
+  
+  console.log('🌱 Starting database seeding...')
 
   // Clear existing data (optional - comment out if you want to keep existing data)
   console.log('Clearing existing data...')
@@ -221,14 +244,26 @@ export default async function handler(req, res) {
 
   try {
     const result = await seed()
+    
+    console.log('✅ Seeding completed successfully')
+    console.log('🔄 Disconnecting from database...')
+    
     await prisma.$disconnect()
     await pool.end()
     
+    console.log('✅ Database disconnected')
+    
     return res.status(200).json(result)
   } catch (error) {
-    console.error('Seeding error:', error)
-    await prisma.$disconnect().catch(() => {})
-    await pool.end().catch(() => {})
+    console.error('❌ Seeding error:', error.message)
+    console.error('Full error:', error)
+    
+    try {
+      await prisma.$disconnect()
+      await pool.end()
+    } catch (disconnectError) {
+      console.error('Error disconnecting:', disconnectError.message)
+    }
     
     return res.status(500).json({ 
       error: 'Seeding failed', 

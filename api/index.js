@@ -3,9 +3,40 @@
 import express from 'express'
 import cors from 'cors'
 import { PrismaClient } from '@prisma/client'
+import { Pool } from 'pg'
+import { PrismaPg } from '@prisma/adapter-pg'
 
 const app = express()
-const prisma = new PrismaClient()
+
+// Prisma 7 requires an adapter for PostgreSQL
+const connectionString = process.env.DATABASE_URL
+
+if (!connectionString) {
+  console.error('❌ ERROR: DATABASE_URL environment variable is not set!')
+} else {
+  console.log('🔄 Initializing database connection...')
+  console.log(`📊 Database URL: ${connectionString.replace(/:[^:@]+@/, ':****@')}`) // Hide password in logs
+}
+
+const pool = connectionString ? new Pool({ connectionString }) : null
+const adapter = pool ? new PrismaPg(pool) : null
+const prisma = connectionString ? new PrismaClient({ adapter }) : null
+
+// Test database connection on module load (for serverless functions)
+if (prisma) {
+  prisma.$connect()
+    .then(() => {
+      console.log('✅ Database connected successfully!')
+      // Test query
+      return prisma.user.count()
+    })
+    .then((count) => {
+      console.log(`📈 Database is ready. Current users: ${count}`)
+    })
+    .catch((error) => {
+      console.error('❌ Failed to connect to database:', error.message)
+    })
+}
 
 // Middleware
 app.use(cors())
@@ -427,3 +458,12 @@ app.put('/api/settings', async (req, res) => {
 
 // Export for Vercel
 export default app
+
+// Graceful cleanup for serverless functions
+if (prisma) {
+  process.on('beforeExit', async () => {
+    console.log('🔄 Disconnecting from database...')
+    await prisma.$disconnect().catch(() => {})
+    if (pool) await pool.end().catch(() => {})
+  })
+}
