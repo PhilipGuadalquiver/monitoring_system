@@ -298,13 +298,6 @@ const TaskMonitor = () => {
     ]
   }
 
-  const stats = {
-    total: tasks.length,
-    running: tasks.filter(t => t.status === 'running').length,
-    completed: tasks.filter(t => t.status === 'completed').length,
-    failed: tasks.filter(t => t.status === 'failed').length,
-    pending: tasks.filter(t => t.status === 'pending').length
-  }
 
   return (
     <div>
@@ -487,7 +480,7 @@ const TaskMonitor = () => {
                 key: '2',
                 label: 'Logs',
                 children: (
-                  {selectedTask.logs && selectedTask.logs.length > 0 ? (
+                  selectedTask.logs && selectedTask.logs.length > 0 ? (
                     <Timeline
                       items={selectedTask.logs.map((log, index) => ({
                         key: index,
@@ -496,7 +489,7 @@ const TaskMonitor = () => {
                     />
                   ) : (
                     <Empty description="No logs available" />
-                  )}
+                  )
                 )
               }
             ]}
