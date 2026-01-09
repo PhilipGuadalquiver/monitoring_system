@@ -204,17 +204,41 @@ The application uses PostgreSQL with the following main tables:
 
 ### Running the Application
 
-1. Start the backend server:
-```bash
-npm run server
-```
+#### Quick Start:
 
-2. Start the frontend (in a new terminal):
-```bash
-npm run dev
-```
+1. **Set up environment variables:**
+   Create a `.env` file:
+   ```env
+   DATABASE_URL=your_postgres_connection_string
+   PORT=5000
+   ```
 
-3. Access the application at `http://localhost:3000`
+2. **Generate Prisma Client:**
+   ```bash
+   npm run prisma:generate
+   ```
+
+3. **Start the backend server:**
+   ```bash
+   npm run server
+   # or for development with auto-reload:
+   npm run dev:server
+   ```
+   
+   The backend will run on `http://localhost:5000`
+   You should see: `✅ Database connected successfully!`
+
+4. **Start the frontend (in a new terminal):**
+   ```bash
+   npm run dev
+   ```
+
+5. **Access the application:**
+   - Frontend: `http://localhost:3000`
+   - Backend API: `http://localhost:5000/api`
+   - Health Check: `http://localhost:5000/api/health`
+
+For detailed backend setup instructions, see `BACKEND_SETUP.md`
 
 ### Database Management
 
