@@ -42,15 +42,30 @@ if (prisma) {
 app.use(cors())
 app.use(express.json())
 
+// Helper function to check database connection
+const checkDatabase = (req, res, next) => {
+  if (!prisma) {
+    return res.status(503).json({ 
+      error: 'Database connection not available. Please check DATABASE_URL environment variable.',
+      details: 'The server cannot connect to the database. This may be a configuration issue.'
+    })
+  }
+  next()
+}
+
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server is running' })
+  res.json({ 
+    status: 'ok', 
+    message: 'Server is running',
+    database: prisma ? 'connected' : 'not connected'
+  })
 })
 
 // Import routes from server/index.js
 // For now, we'll include the essential routes here
 // Users routes
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', checkDatabase, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       include: {
@@ -60,11 +75,15 @@ app.get('/api/users', async (req, res) => {
     })
     res.json(users)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error fetching users:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch users',
+      message: error.message 
+    })
   }
 })
 
-app.get('/api/users/:id', async (req, res) => {
+app.get('/api/users/:id', checkDatabase, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
@@ -85,12 +104,16 @@ app.get('/api/users/:id', async (req, res) => {
     }
     res.json(user)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error fetching user:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch user',
+      message: error.message 
+    })
   }
 })
 
 // Tasks routes
-app.get('/api/tasks', async (req, res) => {
+app.get('/api/tasks', checkDatabase, async (req, res) => {
   try {
     const { status, assigneeId, priority, category } = req.query
     const where = {}
@@ -133,11 +156,15 @@ app.get('/api/tasks', async (req, res) => {
     })
     res.json(tasks)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error fetching tasks:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch tasks',
+      message: error.message 
+    })
   }
 })
 
-app.get('/api/tasks/:id', async (req, res) => {
+app.get('/api/tasks/:id', checkDatabase, async (req, res) => {
   try {
     const task = await prisma.task.findUnique({
       where: { id: req.params.id },
@@ -195,11 +222,15 @@ app.get('/api/tasks/:id', async (req, res) => {
     }
     res.json(task)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error fetching task:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch task',
+      message: error.message 
+    })
   }
 })
 
-app.post('/api/tasks', async (req, res) => {
+app.post('/api/tasks', checkDatabase, async (req, res) => {
   try {
     const {
       name,
@@ -264,11 +295,14 @@ app.post('/api/tasks', async (req, res) => {
     res.status(201).json(task)
   } catch (error) {
     console.error('Error creating task:', error)
-    res.status(400).json({ error: error.message })
+    res.status(400).json({ 
+      error: 'Failed to create task',
+      message: error.message 
+    })
   }
 })
 
-app.put('/api/tasks/:id', async (req, res) => {
+app.put('/api/tasks/:id', checkDatabase, async (req, res) => {
   try {
     const {
       name,
@@ -314,23 +348,31 @@ app.put('/api/tasks/:id', async (req, res) => {
     })
     res.json(task)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    console.error('Error updating task:', error)
+    res.status(400).json({ 
+      error: 'Failed to update task',
+      message: error.message 
+    })
   }
 })
 
-app.delete('/api/tasks/:id', async (req, res) => {
+app.delete('/api/tasks/:id', checkDatabase, async (req, res) => {
   try {
     await prisma.task.delete({
       where: { id: req.params.id }
     })
     res.json({ message: 'Task deleted successfully' })
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    console.error('Error deleting task:', error)
+    res.status(400).json({ 
+      error: 'Failed to delete task',
+      message: error.message 
+    })
   }
 })
 
 // Task Logs
-app.post('/api/tasks/:id/logs', async (req, res) => {
+app.post('/api/tasks/:id/logs', checkDatabase, async (req, res) => {
   try {
     const { message, type } = req.body
     const log = await prisma.taskLog.create({
@@ -342,12 +384,16 @@ app.post('/api/tasks/:id/logs', async (req, res) => {
     })
     res.status(201).json(log)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    console.error('Error adding log:', error)
+    res.status(400).json({ 
+      error: 'Failed to add log',
+      message: error.message 
+    })
   }
 })
 
 // Task Metrics
-app.post('/api/tasks/:id/metrics', async (req, res) => {
+app.post('/api/tasks/:id/metrics', checkDatabase, async (req, res) => {
   try {
     const { cpuUsage, memoryUsage, diskIO, networkIO, throughput } = req.body
     const metric = await prisma.taskMetric.create({
@@ -362,12 +408,16 @@ app.post('/api/tasks/:id/metrics', async (req, res) => {
     })
     res.status(201).json(metric)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    console.error('Error adding metric:', error)
+    res.status(400).json({ 
+      error: 'Failed to add metric',
+      message: error.message 
+    })
   }
 })
 
 // Comments
-app.get('/api/tasks/:id/comments', async (req, res) => {
+app.get('/api/tasks/:id/comments', checkDatabase, async (req, res) => {
   try {
     const comments = await prisma.comment.findMany({
       where: { taskId: req.params.id },
@@ -385,11 +435,15 @@ app.get('/api/tasks/:id/comments', async (req, res) => {
     })
     res.json(comments)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error fetching comments:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch comments',
+      message: error.message 
+    })
   }
 })
 
-app.post('/api/tasks/:id/comments', async (req, res) => {
+app.post('/api/tasks/:id/comments', checkDatabase, async (req, res) => {
   try {
     const { userId, text } = req.body
     const comment = await prisma.comment.create({
@@ -411,12 +465,16 @@ app.post('/api/tasks/:id/comments', async (req, res) => {
     })
     res.status(201).json(comment)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    console.error('Error adding comment:', error)
+    res.status(400).json({ 
+      error: 'Failed to add comment',
+      message: error.message 
+    })
   }
 })
 
 // Dashboard stats
-app.get('/api/dashboard/stats', async (req, res) => {
+app.get('/api/dashboard/stats', checkDatabase, async (req, res) => {
   try {
     const [total, running, completed, failed, pending] = await Promise.all([
       prisma.task.count(),
@@ -439,7 +497,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
 })
 
 // System Settings
-app.get('/api/settings', async (req, res) => {
+app.get('/api/settings', checkDatabase, async (req, res) => {
   try {
     let settings = await prisma.systemSettings.findFirst()
     if (!settings) {
@@ -449,11 +507,15 @@ app.get('/api/settings', async (req, res) => {
     }
     res.json(settings)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error fetching settings:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch settings',
+      message: error.message 
+    })
   }
 })
 
-app.put('/api/settings', async (req, res) => {
+app.put('/api/settings', checkDatabase, async (req, res) => {
   try {
     let settings = await prisma.systemSettings.findFirst()
     if (settings) {
@@ -468,8 +530,31 @@ app.put('/api/settings', async (req, res) => {
     }
     res.json(settings)
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    console.error('Error updating settings:', error)
+    res.status(400).json({ 
+      error: 'Failed to update settings',
+      message: error.message 
+    })
   }
+})
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err)
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'production' 
+      ? 'An error occurred. Please try again later.' 
+      : err.message
+  })
+})
+
+// 404 handler for API routes
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ 
+    error: 'API endpoint not found',
+    path: req.path 
+  })
 })
 
 // Export for Vercel - Express app as serverless function
