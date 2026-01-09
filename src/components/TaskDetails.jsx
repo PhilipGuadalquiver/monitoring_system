@@ -52,7 +52,8 @@ import {
   FlagOutlined,
   FileTextOutlined,
   BarChartOutlined,
-  SettingOutlined
+  SettingOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 
