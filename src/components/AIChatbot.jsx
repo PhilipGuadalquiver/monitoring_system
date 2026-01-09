@@ -19,7 +19,6 @@ import {
   RobotOutlined,
   UserOutlined,
   SendOutlined,
-  CloseOutlined,
   MessageOutlined,
   DownloadOutlined,
   DeleteOutlined,
@@ -491,12 +490,9 @@ const AIChatbot = () => {
         open={open}
         width={420}
         extra={
-          <Space>
-            <Dropdown menu={{ items: menuItems }} placement="bottomRight">
-              <Button type="text" size="small" icon={<ThunderboltOutlined />} />
-            </Dropdown>
-            <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setOpen(false)} />
-          </Space>
+          <Dropdown menu={{ items: menuItems }} placement="bottomRight">
+            <Button type="text" size="small" icon={<ThunderboltOutlined />} />
+          </Dropdown>
         }
         styles={{
           body: {
