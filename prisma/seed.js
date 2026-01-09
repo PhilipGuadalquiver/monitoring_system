@@ -163,13 +163,14 @@ async function main() {
     }
   })
 
-  console.log('Created tasks:', { task1, task2, task3 })
+  console.log('✅ Created 3 tasks:')
+  console.log(`  - ${task1.name} (${task1.status}) - Assigned to ${user1.firstName} ${user1.lastName}`)
+  console.log(`  - ${task2.name} (${task2.status}) - Assigned to ${user2.firstName} ${user2.lastName}`)
+  console.log(`  - ${task3.name} (${task3.status}) - Assigned to ${user3.firstName} ${user3.lastName}`)
 
   // Create system settings
-  const settings = await prisma.systemSettings.upsert({
-    where: { id: 'default' },
-    update: {},
-    create: {
+  const settings = await prisma.systemSettings.create({
+    data: {
       appName: 'Monitoring System',
       language: 'en',
       timezone: 'UTC',
@@ -182,8 +183,12 @@ async function main() {
     }
   })
 
-  console.log('Created system settings:', settings)
-  console.log('Seeding completed!')
+  console.log('✅ Created system settings')
+  console.log('\n🎉 Seeding completed successfully!')
+  console.log('\nSummary:')
+  console.log(`  - Users: 3 (1 admin, 2 regular users)`)
+  console.log(`  - Tasks: 3 (1 running, 1 completed, 1 pending)`)
+  console.log(`  - System Settings: 1`)
 }
 
 main()
