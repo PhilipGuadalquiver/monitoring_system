@@ -133,11 +133,14 @@ const Dashboard = () => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => (
-        <Tag icon={getStatusIcon(status)} color={getStatusColor(status)}>
-          {status.toUpperCase()}
-        </Tag>
-      )
+      render: (status) => {
+        const statusStr = (status || 'pending').toString()
+        return (
+          <Tag icon={getStatusIcon(statusStr)} color={getStatusColor(statusStr)}>
+            {statusStr.toUpperCase()}
+          </Tag>
+        )
+      }
     },
     {
       title: 'Progress',
@@ -149,9 +152,12 @@ const Dashboard = () => {
       title: 'Priority',
       dataIndex: 'priority',
       key: 'priority',
-      render: (priority) => (
-        <Tag color={getPriorityColor(priority)}>{priority.toUpperCase()}</Tag>
-      )
+      render: (priority) => {
+        const priorityStr = (priority || 'medium').toString()
+        return (
+          <Tag color={getPriorityColor(priorityStr)}>{priorityStr.toUpperCase()}</Tag>
+        )
+      }
     },
     {
       title: 'Assignee',

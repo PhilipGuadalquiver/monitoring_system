@@ -131,10 +131,16 @@ const TaskMonitor = () => {
     if (!task) return null
     return {
       ...task,
-      assignee: task.assignee ? `${task.assignee.firstName} ${task.assignee.lastName}` : 'Unassigned',
+      name: task.name || 'Unnamed Task',
+      assignee: task.assignee ? (typeof task.assignee === 'string' ? task.assignee : `${task.assignee.firstName || ''} ${task.assignee.lastName || ''}`.trim() || 'Unassigned') : 'Unassigned',
       createdAt: task.createdAt ? dayjs(task.createdAt) : dayjs(),
       deadline: task.deadline ? dayjs(task.deadline) : null,
-      logs: task.logs ? task.logs.map(log => log.message) : []
+      status: task.status || 'pending',
+      priority: task.priority || 'medium',
+      category: task.category || 'data',
+      progress: typeof task.progress === 'number' ? task.progress : 0,
+      duration: task.duration || '-',
+      logs: task.logs ? task.logs.map(log => typeof log === 'string' ? log : log.message || '') : []
     }
   }
 
@@ -171,9 +177,11 @@ const TaskMonitor = () => {
   }
 
   const filteredTasks = displayTasks.filter(task => {
-    const matchesSearch = task.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                         (task.assignee && task.assignee.toLowerCase().includes(searchText.toLowerCase()))
-    return matchesSearch
+    if (!task) return false
+    const searchLower = (searchText || '').toLowerCase()
+    const nameMatch = (task.name || '').toLowerCase().includes(searchLower)
+    const assigneeMatch = (task.assignee || '').toLowerCase().includes(searchLower)
+    return nameMatch || assigneeMatch
   })
 
   const columns = [
@@ -181,7 +189,11 @@ const TaskMonitor = () => {
       title: 'Task Name',
       dataIndex: 'name',
       key: 'name',
-      sorter: (a, b) => a.name.localeCompare(b.name),
+      sorter: (a, b) => {
+        const nameA = (a.name || '').toString()
+        const nameB = (b.name || '').toString()
+        return nameA.localeCompare(nameB)
+      },
       render: (text, record) => (
         <Button type="link" onClick={() => navigate(`/task/${record.id}`)}>
           {text}
@@ -198,12 +210,15 @@ const TaskMonitor = () => {
         { text: 'Pending', value: 'pending' },
         { text: 'Failed', value: 'failed' }
       ],
-      onFilter: (value, record) => record.status === value,
-      render: (status) => (
-        <Tag icon={getStatusIcon(status)} color={getStatusColor(status)}>
-          {status.toUpperCase()}
-        </Tag>
-      )
+      onFilter: (value, record) => (record.status || '') === value,
+      render: (status) => {
+        const statusStr = (status || 'pending').toString()
+        return (
+          <Tag icon={getStatusIcon(statusStr)} color={getStatusColor(statusStr)}>
+            {statusStr.toUpperCase()}
+          </Tag>
+        )
+      }
     },
     {
       title: 'Progress',
@@ -224,21 +239,28 @@ const TaskMonitor = () => {
         const order = { critical: 4, high: 3, medium: 2, low: 1 }
         return order[a.priority] - order[b.priority]
       },
-      render: (priority) => (
-        <Tag color={getPriorityColor(priority)}>{priority.toUpperCase()}</Tag>
-      )
+      render: (priority) => {
+        const priorityStr = (priority || 'medium').toString()
+        return (
+          <Tag color={getPriorityColor(priorityStr)}>{priorityStr.toUpperCase()}</Tag>
+        )
+      }
     },
     {
       title: 'Category',
       dataIndex: 'category',
       key: 'category',
-      render: (category) => <Tag>{category}</Tag>
+      render: (category) => <Tag>{category ? category.toString() : 'N/A'}</Tag>
     },
     {
       title: 'Assignee',
       dataIndex: 'assignee',
       key: 'assignee',
-      sorter: (a, b) => a.assignee.localeCompare(b.assignee)
+      sorter: (a, b) => {
+        const assigneeA = (a.assignee || '').toString()
+        const assigneeB = (b.assignee || '').toString()
+        return assigneeA.localeCompare(assigneeB)
+      }
     },
     {
       title: 'Created',
@@ -457,16 +479,16 @@ const TaskMonitor = () => {
                   <Descriptions column={1} bordered>
                     <Descriptions.Item label="Task Name">{selectedTask.name}</Descriptions.Item>
                     <Descriptions.Item label="Status">
-                      <Tag icon={getStatusIcon(selectedTask.status)} color={getStatusColor(selectedTask.status)}>
-                        {selectedTask.status.toUpperCase()}
+                      <Tag icon={getStatusIcon(selectedTask.status || 'pending')} color={getStatusColor(selectedTask.status || 'pending')}>
+                        {(selectedTask.status || 'pending').toString().toUpperCase()}
                       </Tag>
                     </Descriptions.Item>
                     <Descriptions.Item label="Progress">
-                      <Progress percent={selectedTask.progress} />
+                      <Progress percent={selectedTask.progress || 0} />
                     </Descriptions.Item>
                     <Descriptions.Item label="Priority">
-                      <Tag color={getPriorityColor(selectedTask.priority)}>
-                        {selectedTask.priority.toUpperCase()}
+                      <Tag color={getPriorityColor(selectedTask.priority || 'medium')}>
+                        {(selectedTask.priority || 'medium').toString().toUpperCase()}
                       </Tag>
                     </Descriptions.Item>
                     <Descriptions.Item label="Category">{selectedTask.category}</Descriptions.Item>

@@ -319,16 +319,16 @@ const TaskDetails = () => {
                     <>
                       <Descriptions column={2} bordered>
                         <Descriptions.Item label="Status" span={2}>
-                          <Tag icon={getStatusIcon(displayTask.status)} color={getStatusColor(displayTask.status)} size="large">
-                            {displayTask.status.toUpperCase()}
+                          <Tag icon={getStatusIcon(displayTask.status || 'pending')} color={getStatusColor(displayTask.status || 'pending')} size="large">
+                            {(displayTask.status || 'pending').toString().toUpperCase()}
                           </Tag>
                         </Descriptions.Item>
                         <Descriptions.Item label="Progress">
                           <Progress percent={displayTask.progress} status={displayTask.status === 'failed' ? 'exception' : 'active'} />
                         </Descriptions.Item>
                         <Descriptions.Item label="Priority">
-                          <Tag color={getPriorityColor(displayTask.priority)} icon={<FlagOutlined />}>
-                            {displayTask.priority.toUpperCase()}
+                          <Tag color={getPriorityColor(displayTask.priority || 'medium')} icon={<FlagOutlined />}>
+                            {(displayTask.priority || 'medium').toString().toUpperCase()}
                           </Tag>
                         </Descriptions.Item>
                         <Descriptions.Item label="Category">
